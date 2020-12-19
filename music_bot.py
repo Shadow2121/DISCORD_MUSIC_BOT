@@ -3,9 +3,36 @@ import discord
 from discord.ext import commands
 from discord.utils import get
 import os
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver import ActionChains
+import time
+import speech_recognition as sr
+import threading
+
+PATH = "C:\Program Files (x86)\chromedriver.exe"
+
+def get_audio():
+    time.sleep(2)
+    while True:
+        r = sr.Recognizer()
+        r.energy_threshold = 4000
+        with sr.Microphone() as source:
+            audio = r.listen(source)
+            said = ""
+
+            try:
+                said = r.recognize_google(audio)
+            except Exception as e:
+                print(e)
+        if said != "":
+            break
+        print(said)
+    return said.lower()
+    
 
 
-token = "NzQ2MjQ2NzU2NzYwNjgyNTg4.Xz9icw.t7mI0hQ8Ky_Vjcg61Q8mpH317o0"
+token = ''  ## put your bot's token
 bot_prefix = ">"
 
 bot = commands.Bot(command_prefix=bot_prefix)
@@ -37,6 +64,11 @@ async def join(ctx):
     else:
         voice = await channel.connect()
 
+    await ctx.send('Listining.......')
+    a = str(get_audio())
+    await ctx.send(">play " + a)
+    await play(ctx, a)
+
 @bot.command(pass_context=True, alianes=['l', 'lea'])
 async def leave(ctx):
     global voice
@@ -59,7 +91,7 @@ async def play(ctx, url: str):
             os.remove("song.mp3")
             print("Removed old song file\n")
     except PermissionError:
-        print("Trying to delet song file, but it is playing")
+        print("Trying to delete song file, but it is playing")
         await ctx.send("Error: Song is currently playing")
         return
 
@@ -74,6 +106,23 @@ async def play(ctx, url: str):
             'preferredquality' : '192',
         }],
     }
+    driver = webdriver.Chrome(PATH)
+    driver.get("https://www.youtube.com")
+
+    search_bar = driver.find_element_by_xpath('/html/body/ytd-app/div/div/ytd-masthead/div[3]/div[2]/ytd-searchbox/form/div/div[1]/input')
+    search_bar.send_keys(url)
+    search_bar.send_keys(Keys.RETURN)
+
+    first_video = driver.find_element_by_xpath('/html/body/ytd-app/div/ytd-page-manager/ytd-search/div[1]/ytd-two-column-search-results-renderer/div/ytd-section-list-renderer/div[2]/ytd-item-section-renderer/div[3]/ytd-video-renderer[1]/div[1]/ytd-thumbnail/a/yt-img-shadow/img')
+
+    action = ActionChains(driver)
+
+    action.move_to_element(first_video).click()
+    time.sleep(2)
+    action.perform()
+    uurl = driver.current_url
+    url = uurl
+    driver.quit()
 
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         print("Downloding audio now\n")
