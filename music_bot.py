@@ -9,27 +9,31 @@ from selenium.webdriver import ActionChains
 import time
 import speech_recognition as sr
 import threading
+import asyncio
+import pyttsx3
 
 PATH = "C:\Program Files (x86)\chromedriver.exe"
 
-def get_audio():
-    time.sleep(2)
-    while True:
-        r = sr.Recognizer()
-        r.energy_threshold = 4000
-        with sr.Microphone() as source:
-            audio = r.listen(source)
-            said = ""
+def speak(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
 
-            try:
-                said = r.recognize_google(audio)
-            except Exception as e:
-                print(e)
-        if said != "":
-            break
+def get_audio():
+    print("get_audio started")
+    r = sr.Recognizer()
+    r.energy_threshold = 4000
+    with sr.Microphone() as source:
+        audio = r.listen(source)
+        said = ""
+
+        try:
+            said = r.recognize_google(audio)
+        except Exception as e:
+            print(e)
         print(said)
     return said.lower()
-    
+
 
 
 token = ''  ## put your bot's token
@@ -40,6 +44,37 @@ bot = commands.Bot(command_prefix=bot_prefix)
 @bot.event
 async def on_ready():
     print("Loged in as: " + bot.user.name + "\n")
+
+async def my_task(ctx):
+    while True:
+        tt = False
+        text = get_audio()
+        t = text.split(" ")
+        if t[0] == "join":
+            await join(ctx)
+            tt = True
+        if t[0] == "leave" or t[0] == "live":
+            await leave(ctx)
+            tt = True
+        if t[0] == "pause":
+            await pause(ctx)
+            tt = True
+        if t[0] == "resume":
+            await resume(ctx)
+            tt = True
+        if t[0] == "stop":
+            await stop(ctx)
+            tt = True
+        if t[0] == "play":
+            temp = t[1:]
+            song_name = " ".join(temp)
+            await play (ctx, song_name)
+        if not tt:
+            await asyncio.sleep(10)
+
+@bot.command()
+async def start_bot(ctx):
+    bot.loop.create_task(my_task(ctx))
 
 @bot.command(pass_context=True, alianes=['j', 'joi'])
 async def join(ctx):
@@ -63,14 +98,13 @@ async def join(ctx):
         await voice.move_to(channel)
     else:
         voice = await channel.connect()
+    
+    speak("Joined the channel")
 
-    await ctx.send('Listining.......')
-    a = str(get_audio())
-    await ctx.send(">play " + a)
-    await play(ctx, a)
 
 @bot.command(pass_context=True, alianes=['l', 'lea'])
 async def leave(ctx):
+    speak("leaving the channel")
     global voice
     channel = ctx.message.author.voice.channel
     voice = get(bot.voice_clients, guild=ctx.guild)
@@ -81,6 +115,7 @@ async def leave(ctx):
         await ctx.send(f"Left the {channel}")
     else:
         print("Bot is not in any channel")
+        speak("Don't think I am in any channel")
         await ctx.send("Don't think I am in any channel")
 
 @bot.command(pass_context=True, alianes=['p', 'pla'])
@@ -95,6 +130,7 @@ async def play(ctx, url: str):
         await ctx.send("Error: Song is currently playing")
         return
 
+    speak("Getting everything ready now")
     await ctx.send("Getting everything ready now.")
     voice = get(bot.voice_clients, guild = ctx.guild)
 
@@ -141,6 +177,7 @@ async def play(ctx, url: str):
     nname = name.rsplit("-", 2)
     await ctx.send(f"Playing: {nname[0]}")
     print("Playing")
+    speak("Playing the song")
 
 @bot.command(pass_context=True, alianes=['pa', 'pau'])
 async def pause(ctx):
@@ -150,9 +187,11 @@ async def pause(ctx):
     if voice and voice.is_playing():
         voice.pause()
         print("music paused")
+        speak("Song paused")
         await ctx.send("Music paused")
     else:
         print("Song is not playing")
+        speak("Song is not playing")
         await ctx.send("Song is not playing [Failed Pause]")
 
 
@@ -164,9 +203,11 @@ async def resume(ctx):
     if voice and voice.is_paused():
         voice.resume()
         print("Song is resumed")
+        speak("Resuming song")
         await ctx.send("Song resumed")
     else:
         print("Song is not paused")
+        speak("Song is not paused")
         await ctx.send("Song is not paused [Resume Failed]")
 
 
@@ -178,11 +219,12 @@ async def stop(ctx):
         voice.stop()
         print("music stoped")
         await ctx.send("Music stoped")
+        speak("Song Stopped")
     else:
         print("Song is not playing")
         await ctx.send("Song is not playing [Stop Failed]")
-
-
+        speak("Song is not playing")
+    
 
 
 bot.run(token)
